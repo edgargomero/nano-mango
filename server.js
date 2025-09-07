@@ -74,47 +74,53 @@ Requirements:
             data: outfitImage.data
         };
 
-        // Generate images using Gemini 2.5 Flash Image with context images
-        const response = await client.models.generateContent({
+        // Generate images using streaming API with proper configuration
+        const config = {
+            responseModalities: ['IMAGE', 'TEXT'],
+            temperature: 0.7,
+            maxOutputTokens: 8192,
+        };
+
+        const contents = [
+            {
+                role: 'user',
+                parts: [
+                    { text: prompt },
+                    { inlineData: userImageData },
+                    { inlineData: outfitImageData }
+                ],
+            },
+        ];
+
+        const response = await client.models.generateContentStream({
             model: 'gemini-2.5-flash-image-preview',
-            contents: [
-                prompt,
-                { inlineData: userImageData },
-                { inlineData: outfitImageData }
-            ],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 8192,
-            }
+            config,
+            contents,
         });
 
-        // Extract generated images from response
+        // Extract generated images from streaming response
         let generatedImages = [];
-        if (response.response && response.response.candidates) {
-            for (const candidate of response.response.candidates) {
-                if (candidate.content && candidate.content.parts) {
-                    for (const part of candidate.content.parts) {
-                        if (part.inlineData && part.inlineData.data) {
-                            generatedImages.push(part.inlineData.data);
-                        }
-                    }
+        let textOutput = '';
+        
+        for await (const chunk of response) {
+            if (!chunk.candidates || !chunk.candidates[0]?.content?.parts) {
+                continue;
+            }
+
+            // Check for image data in chunks
+            for (const part of chunk.candidates[0].content.parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    generatedImages.push(part.inlineData.data);
+                    console.log('📸 Image extracted from stream');
+                } else if (part.text) {
+                    textOutput += part.text;
                 }
             }
         }
 
-        // If no images found in response, try alternative extraction
-        if (generatedImages.length === 0 && response.response) {
-            console.log('Trying alternative image extraction...');
-            // Add fallback extraction logic if needed
-            const text = response.response.text();
-            if (text && text.includes('base64')) {
-                // Extract base64 data if present in text response
-                const base64Match = text.match(/data:image\/[^;]+;base64,([^"]+)/);
-                if (base64Match) {
-                    generatedImages.push(base64Match[1]);
-                }
-            }
-        }
+        console.log('🔍 Stream processing completed');
+        console.log('📊 Text output:', textOutput.substring(0, 100) + '...');
+        console.log('🖼️ Images extracted:', generatedImages.length);
 
         console.log(`✅ Transferencia completada! ${generatedImages.length} imágenes generadas`);
 
