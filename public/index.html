@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🍌 Nano Banana - AI Outfit Transfer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍌 Nano Banana</h1>
+            <p>Transferencia de outfits con IA</p>
+        </header>
+
+        <div class="form-container">
+            <!-- API Key Section -->
+            <div class="section">
+                <h2>🔑 Configuración</h2>
+                <div class="api-key-section">
+                    <label for="apiKey">Google AI Studio API Key:</label>
+                    <input type="password" id="apiKey" placeholder="Ingresa tu API key aquí..." />
+                    <small>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank">
+                            Obtener API Key gratis →
+                        </a>
+                    </small>
+                </div>
+            </div>
+
+            <!-- Image Upload Section -->
+            <div class="section">
+                <h2>📸 Seleccionar Imágenes</h2>
+                
+                <div class="upload-grid">
+                    <div class="upload-box">
+                        <label for="userImage">Tu Foto</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="userImage" accept="image/*" />
+                            <div class="preview" id="userPreview">
+                                <div class="upload-text">📷 Sube tu foto</div>
+                                <div class="upload-hint">Arrastra y suelta aquí o haz clic</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="upload-box">
+                        <label for="outfitImage">Outfit de Referencia</label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="outfitImage" accept="image/*" />
+                            <div class="preview" id="outfitPreview">
+                                <div class="upload-text">👔 Sube el outfit</div>
+                                <div class="upload-hint">Arrastra y suelta aquí o haz clic</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Process Button -->
+            <div class="section">
+                <button id="processButton" class="process-btn" disabled>
+                    <span class="btn-text">🎨 Transferir Outfit</span>
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                        Procesando...
+                    </div>
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <div class="section" id="resultsSection" style="display: none;">
+                <h2>✨ Resultados</h2>
+                <div class="results-grid" id="resultsGrid">
+                    <!-- Results will be populated here -->
+                </div>
+                <button id="downloadAll" class="download-btn">
+                    📥 Descargar Todas
+                </button>
+            </div>
+
+            <!-- Error Section -->
+            <div class="section error-section" id="errorSection" style="display: none;">
+                <h2>❌ Error</h2>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+
+        <footer>
+            <p>Powered by Google GenAI Imagen 3 • Made with ❤️</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

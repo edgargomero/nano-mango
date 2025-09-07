@@ -1,0 +1,32 @@
+{
+  "name": "nano-banana",
+  "version": "1.0.0",
+  "description": "AI outfit transfer app using Google GenAI Imagen",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "cli": "node index.js",
+    "build": "echo 'Building for Cloudflare Pages...' && cp -r public/* dist/ && echo 'Build completed'",
+    "preview": "npx wrangler pages dev dist --port 8788"
+  },
+  "keywords": [
+    "ai",
+    "imagen",
+    "outfit",
+    "transfer",
+    "google-genai",
+    "web-app",
+    "cloudflare-pages"
+  ],
+  "author": "kntor",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.3.0",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.2"
+  }
+}

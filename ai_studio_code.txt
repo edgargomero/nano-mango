@@ -1,0 +1,23 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "Usando la siguiente imagen como base, reemplaza la ropa de la persona para que coincida con esta descripción detallada. Mantén la misma cara, pose y cuerpo de la persona en la imagen original. El nuevo atuendo debe ser: una blusa blanca de punto con ribetes negros, cuello en pico con solapas y mangas cortas; combinada con una minifalda negra ajustada de tubo. Debe llevar zapatos de tacón stiletto negros de charol, un clutch negro y joyería de plata discreta (pendientes, collar, pulseras). La imagen final debe tener una calidad fotorrealista, con iluminación de estudio suave y profesional. Evita cualquier deformidad, anatomía incorrecta o artefactos digitales."
+        },
+        {
+          "inline_data": {
+            "mime_type": "image/jpeg",
+            "data": "AQUÍ_VA_TU_IMAGEN_EN_BASE64"
+          }
+        }
+      ]
+    }
+  ],
+  "generation_config": {
+    "temperature": 0.4,
+    "top_k": 32,
+    "top_p": 1,
+    "candidate_count": 1
+  }
+}
