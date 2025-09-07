@@ -141,49 +141,63 @@ Requirements:
         });
 
         let response;
-        try {
-            console.log('🌐 Calling Gemini API...');
-            response = await client.models.generateContentStream({
-                model: 'gemini-2.5-flash-image-preview',
-                config,
-                contents,
-            });
-            console.log('✅ API call successful, starting stream processing');
-        } catch (apiError) {
-            console.error('❌ Gemini API call failed:', apiError);
-            console.error('🔍 Error details:', {
-                message: apiError.message,
-                status: apiError.status,
-                statusText: apiError.statusText,
-                stack: apiError.stack
-            });
-            
-            let errorMessage = 'Error en la API de Google';
-            let statusCode = 503;
-            
-            if (apiError.message.includes('API key')) {
-                errorMessage = 'API Key inválida o sin permisos';
-                statusCode = 401;
-            } else if (apiError.message.includes('quota')) {
-                errorMessage = 'Cuota de API excedida';
-                statusCode = 429;
-            } else if (apiError.message.includes('model')) {
-                errorMessage = 'Modelo no disponible temporalmente';
-                statusCode = 503;
-            } else if (apiError.message.includes('permission')) {
-                errorMessage = 'Permisos insuficientes para el modelo';
-                statusCode = 403;
+        const modelsToTry = [
+            'gemini-2.5-flash-image-preview',
+            'gemini-2.0-flash-image',
+            'gemini-2.5-flash'
+        ];
+
+        let lastError = null;
+        for (let i = 0; i < modelsToTry.length; i++) {
+            const modelName = modelsToTry[i];
+            try {
+                console.log(`🌐 Attempting API call with model: ${modelName}...`);
+                
+                // Adjust config based on model
+                let adjustedConfig = { ...config };
+                if (modelName === 'gemini-2.5-flash') {
+                    // Text-only model fallback
+                    adjustedConfig = {
+                        temperature: 0.7,
+                        maxOutputTokens: 1000,
+                    };
+                    // Modify contents to be text-only for fallback
+                    const fallbackContents = [
+                        {
+                            role: 'user',
+                            parts: [
+                                { text: 'I need to transfer clothing from one image to another person. Please provide step-by-step instructions for this task using AI image generation.' }
+                            ],
+                        },
+                    ];
+                    response = await client.models.generateContentStream({
+                        model: modelName,
+                        config: adjustedConfig,
+                        contents: fallbackContents,
+                    });
+                } else {
+                    response = await client.models.generateContentStream({
+                        model: modelName,
+                        config: adjustedConfig,
+                        contents,
+                    });
+                }
+                
+                console.log(`✅ API call successful with ${modelName}, starting stream processing`);
+                break; // Success, exit the loop
+                
+            } catch (modelError) {
+                console.error(`❌ Model ${modelName} failed:`, modelError.message);
+                lastError = modelError;
+                
+                if (i === modelsToTry.length - 1) {
+                    // Last model attempt failed
+                    throw modelError;
+                }
+                
+                console.log(`🔄 Trying next model...`);
+                continue;
             }
-            
-            return new Response(JSON.stringify({
-                success: false,
-                error: errorMessage,
-                details: apiError.message,
-                timestamp: new Date().toISOString()
-            }), {
-                status: statusCode,
-                headers: { 'Content-Type': 'application/json' }
-            });
         }
 
         // Extract generated images from streaming response
