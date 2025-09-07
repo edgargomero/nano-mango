@@ -1,9 +1,36 @@
 export async function onRequestPost(context) {
+    const startTime = Date.now();
+    console.log(`🚀 [${new Date().toISOString()}] Outfit transfer request started`);
+    
     try {
         const { request } = context;
+        console.log('📥 Request method:', request.method);
+        console.log('📥 Request headers:', JSON.stringify([...request.headers.entries()]));
         
-        // Parse request body
-        const body = await request.json();
+        // Parse request body with error handling
+        let body;
+        try {
+            body = await request.json();
+            console.log('📦 Request body parsed successfully');
+            console.log('📊 Body structure:', {
+                hasApiKey: !!body.apiKey,
+                hasUserImage: !!body.userImage,
+                hasOutfitImage: !!body.outfitImage,
+                userImageSize: body.userImage?.data?.length || 0,
+                outfitImageSize: body.outfitImage?.data?.length || 0
+            });
+        } catch (parseError) {
+            console.error('❌ JSON parse error:', parseError.message);
+            return new Response(JSON.stringify({
+                success: false,
+                error: 'Invalid JSON in request body',
+                details: parseError.message
+            }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+        
         const { apiKey, userImage, outfitImage } = body;
 
         // Validate required fields
@@ -38,10 +65,29 @@ export async function onRequestPost(context) {
         }
 
         console.log('🎨 Iniciando transferencia de outfit...');
+        console.log('🔑 API Key validation:', {
+            keyLength: apiKey.length,
+            keyPrefix: apiKey.substring(0, 10),
+            keyFormat: apiKey.startsWith('AIza') ? 'Valid format' : 'Invalid format'
+        });
 
         // Initialize Google AI with user's API key
-        const { GoogleGenAI } = await import("@google/genai");
-        const client = new GoogleGenAI({ apiKey: apiKey });
+        let client;
+        try {
+            const { GoogleGenAI } = await import("@google/genai");
+            client = new GoogleGenAI({ apiKey: apiKey });
+            console.log('✅ GoogleGenAI client initialized successfully');
+        } catch (importError) {
+            console.error('❌ Failed to import or initialize GoogleGenAI:', importError.message);
+            return new Response(JSON.stringify({
+                success: false,
+                error: 'Failed to initialize AI client',
+                details: importError.message
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
         // Create detailed prompt for outfit transfer
         const prompt = `Create a professional fashion photo. Take the outfit/clothing from the second image and let the person from the first image wear it. Generate a realistic, full-body shot of the person wearing the new outfit, maintaining their original facial features, pose, and body characteristics. Preserve the person's identity completely while only changing their clothing to match the reference outfit exactly.
@@ -85,11 +131,60 @@ Requirements:
             },
         ];
 
-        const response = await client.models.generateContentStream({
+        console.log('📤 Preparing API request:', {
             model: 'gemini-2.5-flash-image-preview',
-            config,
-            contents,
+            configKeys: Object.keys(config),
+            contentParts: contents[0].parts.length,
+            promptLength: prompt.length,
+            userImageType: userImageData.mimeType,
+            outfitImageType: outfitImageData.mimeType
         });
+
+        let response;
+        try {
+            console.log('🌐 Calling Gemini API...');
+            response = await client.models.generateContentStream({
+                model: 'gemini-2.5-flash-image-preview',
+                config,
+                contents,
+            });
+            console.log('✅ API call successful, starting stream processing');
+        } catch (apiError) {
+            console.error('❌ Gemini API call failed:', apiError);
+            console.error('🔍 Error details:', {
+                message: apiError.message,
+                status: apiError.status,
+                statusText: apiError.statusText,
+                stack: apiError.stack
+            });
+            
+            let errorMessage = 'Error en la API de Google';
+            let statusCode = 503;
+            
+            if (apiError.message.includes('API key')) {
+                errorMessage = 'API Key inválida o sin permisos';
+                statusCode = 401;
+            } else if (apiError.message.includes('quota')) {
+                errorMessage = 'Cuota de API excedida';
+                statusCode = 429;
+            } else if (apiError.message.includes('model')) {
+                errorMessage = 'Modelo no disponible temporalmente';
+                statusCode = 503;
+            } else if (apiError.message.includes('permission')) {
+                errorMessage = 'Permisos insuficientes para el modelo';
+                statusCode = 403;
+            }
+            
+            return new Response(JSON.stringify({
+                success: false,
+                error: errorMessage,
+                details: apiError.message,
+                timestamp: new Date().toISOString()
+            }), {
+                status: statusCode,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
         // Extract generated images from streaming response
         let generatedImages = [];
@@ -115,12 +210,31 @@ Requirements:
         console.log('📊 Text output:', textOutput.substring(0, 100) + '...');
         console.log('🖼️ Images extracted:', generatedImages.length);
 
-        console.log(`✅ Transferencia completada! ${generatedImages.length} imágenes generadas`);
+        const processingTime = Date.now() - startTime;
+        console.log(`⏱️ Total processing time: ${processingTime}ms`);
+
+        if (generatedImages.length === 0) {
+            console.warn('⚠️ No images were generated in the response');
+            return new Response(JSON.stringify({
+                success: false,
+                error: 'No se generaron imágenes',
+                details: 'El modelo no devolvió imágenes. Posible problema con el prompt o las imágenes de entrada.',
+                textOutput: textOutput,
+                processingTime: processingTime
+            }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        console.log(`✅ Transferencia completada! ${generatedImages.length} imágenes generadas en ${processingTime}ms`);
 
         return new Response(JSON.stringify({
             success: true,
             images: generatedImages,
-            count: generatedImages.length
+            count: generatedImages.length,
+            processingTime: processingTime,
+            textOutput: textOutput.length > 0 ? textOutput : null
         }), {
             status: 200,
             headers: { 
@@ -132,27 +246,46 @@ Requirements:
         });
 
     } catch (error) {
-        console.error('❌ Error en transferencia de outfit:', error);
+        const processingTime = Date.now() - startTime;
+        console.error('❌ Critical error in outfit transfer:', error);
+        console.error('🔍 Error stack:', error.stack);
+        console.error('⏱️ Failed after:', processingTime + 'ms');
         
         let errorMessage = 'Error interno del servidor';
+        let statusCode = 500;
         
         if (error.message.includes('API key')) {
             errorMessage = 'API Key inválida. Verifica tu clave de Google AI Studio';
+            statusCode = 401;
         } else if (error.message.includes('quota')) {
             errorMessage = 'Cuota de API excedida. Revisa tu límite en Google AI Studio';
+            statusCode = 429;
         } else if (error.message.includes('permission')) {
             errorMessage = 'Permisos insuficientes. Verifica la configuración de tu API Key';
+            statusCode = 403;
         } else if (error.message.includes('rate')) {
             errorMessage = 'Demasiadas solicitudes. Espera un momento antes de intentar nuevamente';
+            statusCode = 429;
         } else if (error.message.includes('model')) {
             errorMessage = 'Modelo no disponible. Intenta nuevamente más tarde';
+            statusCode = 503;
+        } else if (error.message.includes('network')) {
+            errorMessage = 'Error de conexión. Verifica tu conexión a internet';
+            statusCode = 503;
+        } else if (error.message.includes('timeout')) {
+            errorMessage = 'Tiempo de espera agotado. La generación tomó demasiado tiempo';
+            statusCode = 408;
         }
 
         return new Response(JSON.stringify({
             success: false,
-            error: errorMessage
+            error: errorMessage,
+            details: error.message,
+            processingTime: processingTime,
+            timestamp: new Date().toISOString(),
+            errorType: error.constructor.name
         }), {
-            status: 500,
+            status: statusCode,
             headers: { 
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'

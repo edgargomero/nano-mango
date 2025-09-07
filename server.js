@@ -20,7 +20,18 @@ app.get('/', (req, res) => {
 
 // API endpoint for outfit transfer
 app.post('/api/transfer-outfit', async (req, res) => {
+    const startTime = Date.now();
+    console.log(`🚀 [${new Date().toISOString()}] Outfit transfer request started`);
+    
     try {
+        console.log('📥 Request body structure:', {
+            hasApiKey: !!req.body.apiKey,
+            hasUserImage: !!req.body.userImage,
+            hasOutfitImage: !!req.body.outfitImage,
+            userImageSize: req.body.userImage?.data?.length || 0,
+            outfitImageSize: req.body.outfitImage?.data?.length || 0
+        });
+        
         const { apiKey, userImage, outfitImage } = req.body;
 
         // Validate required fields
