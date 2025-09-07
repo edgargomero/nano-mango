@@ -41,37 +41,73 @@ export async function onRequestPost(context) {
 
         // Initialize Google AI with user's API key
         const { GoogleGenAI } = await import("@google/genai");
-        const ai = new GoogleGenAI({
-            apiKey: apiKey
-        });
+        const client = new GoogleGenAI({ apiKey: apiKey });
 
         // Create detailed prompt for outfit transfer
-        const prompt = `Analiza la imagen de referencia del outfit y transfiere ese mismo estilo de ropa a la persona en la imagen principal. Mantén exactamente la misma cara, pose, cuerpo y características físicas de la persona original. Solo cambia la ropa para que coincida exactamente con el outfit de la imagen de referencia.
+        const prompt = `Create a professional fashion photo. Take the outfit/clothing from the second image and let the person from the first image wear it. Generate a realistic, full-body shot of the person wearing the new outfit, maintaining their original facial features, pose, and body characteristics. Preserve the person's identity completely while only changing their clothing to match the reference outfit exactly.
 
-Requisitos específicos:
-- Preservar completamente la identidad, pose y expresión de la persona original
-- Copiar fielmente el estilo, colores, patrones y detalles del outfit de referencia
-- Mantener la iluminación y calidad fotográfica profesional
-- Evitar cualquier deformidad o artefacto digital
-- Resultado final debe ser fotorrealista y natural
-
-La transformación debe ser precisa y mantener la coherencia visual.`;
+Requirements:
+- Maintain the person's face, pose, and body structure from the first image
+- Copy the clothing style, colors, patterns, and details from the second image  
+- Keep professional lighting and photographic quality
+- Avoid any deformities or digital artifacts
+- Result should be photorealistic and natural
+- Ensure the clothing fits naturally on the person's body`;
 
         console.log('📸 Procesando imágenes con IA...');
 
-        // Generate images with outfit transfer
-        const response = await ai.models.generateImages({
-            model: 'imagen-3.0-generate-002',
-            prompt: prompt,
-            config: {
-                numberOfImages: 2,
-                sampleImageSize: '2K',
-                aspectRatio: '1:1'
+        // Convert base64 images to proper format for multi-modal input
+        const userImageData = {
+            mimeType: userImage.mimeType,
+            data: userImage.data
+        };
+
+        const outfitImageData = {
+            mimeType: outfitImage.mimeType,  
+            data: outfitImage.data
+        };
+
+        // Generate images using Gemini 2.5 Flash Image with context images
+        const response = await client.models.generateContent({
+            model: 'gemini-2.5-flash-image-preview',
+            contents: [
+                prompt,
+                { inlineData: userImageData },
+                { inlineData: outfitImageData }
+            ],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 8192,
             }
         });
 
-        // Extract generated images
-        const generatedImages = response.generatedImages.map(img => img.image.imageBytes);
+        // Extract generated images from response
+        let generatedImages = [];
+        if (response.response && response.response.candidates) {
+            for (const candidate of response.response.candidates) {
+                if (candidate.content && candidate.content.parts) {
+                    for (const part of candidate.content.parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            generatedImages.push(part.inlineData.data);
+                        }
+                    }
+                }
+            }
+        }
+
+        // If no images found in response, try alternative extraction
+        if (generatedImages.length === 0 && response.response) {
+            console.log('Trying alternative image extraction...');
+            // Add fallback extraction logic if needed
+            const text = response.response.text();
+            if (text && text.includes('base64')) {
+                // Extract base64 data if present in text response
+                const base64Match = text.match(/data:image\/[^;]+;base64,([^"]+)/);
+                if (base64Match) {
+                    generatedImages.push(base64Match[1]);
+                }
+            }
+        }
 
         console.log(`✅ Transferencia completada! ${generatedImages.length} imágenes generadas`);
 
