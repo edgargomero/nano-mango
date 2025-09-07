@@ -36,11 +36,19 @@ class NanoBananaWeb {
 
     setupDragAndDrop() {
         const dropZones = [
-            { element: document.getElementById('userPreview'), type: 'user' },
-            { element: document.getElementById('outfitPreview'), type: 'outfit' }
+            { element: document.getElementById('userPreview'), type: 'user', inputId: 'userImage' },
+            { element: document.getElementById('outfitPreview'), type: 'outfit', inputId: 'outfitImage' }
         ];
 
-        dropZones.forEach(({ element, type }) => {
+        dropZones.forEach(({ element, type, inputId }) => {
+            // Add click functionality to trigger file input
+            element.addEventListener('click', () => {
+                document.getElementById(inputId).click();
+            });
+
+            // Add cursor pointer style
+            element.style.cursor = 'pointer';
+
             // Prevent default drag behaviors
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 element.addEventListener(eventName, this.preventDefaults, false);
